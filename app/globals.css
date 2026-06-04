@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy: #0a1f3c;
+  --blue: #1a3a6b;
+  --orange: #e8620a;
+  --orange-light: #f07a2a;
+  --gray: #f4f6f9;
+  --gray-mid: #8a9ab5;
+  --border: #dce3ef;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { @apply text-prozon-navy; }
+  h1, h2, h3, h4 { @apply font-display tracking-tight; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-prozon-orange hover:bg-prozon-orange-light text-white font-semibold px-6 py-3 transition-colors duration-200 inline-flex items-center gap-2;
+  }
+  .btn-secondary {
+    @apply border-2 border-prozon-navy text-prozon-navy hover:bg-prozon-navy hover:text-white font-semibold px-6 py-3 transition-colors duration-200 inline-flex items-center gap-2;
+  }
+  .btn-outline-orange {
+    @apply border-2 border-prozon-orange text-prozon-orange hover:bg-prozon-orange hover:text-white font-semibold px-6 py-3 transition-colors duration-200;
+  }
+  .card {
+    @apply bg-white border border-prozon-border hover:shadow-lg transition-shadow duration-200;
+  }
+  .section-title {
+    @apply font-display text-3xl font-bold text-prozon-navy uppercase tracking-wide;
+  }
+  .badge {
+    @apply inline-block text-xs font-bold uppercase tracking-widest px-2 py-0.5;
+  }
+}
