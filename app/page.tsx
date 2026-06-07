@@ -40,7 +40,7 @@ export default async function HomePage() {
               <Link href="/category/panneaux-signalisation-routiere" className="btn-primary">
                 Voir nos produits <ArrowRight size={16} />
               </Link>
-              <a href="tel:+33484894343" className="btn-secondary border-white text-white hover:bg-white hover:text-prozon-navy">
+              <a href="tel:XXXXXXXXXX" className="btn-secondary border-white text-white hover:bg-white hover:text-prozon-navy">
                 <Phone size={16} /> Nous contacter
               </a>
             </div>

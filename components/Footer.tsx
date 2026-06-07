@@ -23,7 +23,7 @@ export default function Footer() {
         <div>
           <h4 className="font-display font-bold text-sm uppercase tracking-widest text-prozon-orange mb-4">Contact</h4>
           <ul className="space-y-3 text-sm text-white/70">
-            <li className="flex items-center gap-2"><Phone size={14} /><a href="tel:+33484894343" className="hover:text-white transition-colors">04 84 89 43 43</a></li>
+            <li className="flex items-center gap-2"><Phone size={14} /><a href="tel:+XXXXXXXXXX" className="hover:text-white transition-colors">XXXXXXXXXX</a></li>
             <li className="flex items-center gap-2"><Mail size={14} /><a href="mailto:contact@prozon.com" className="hover:text-white transition-colors">contact@prozon.com</a></li>
             <li className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 shrink-0" /><span>France — Lun.–Ven. 9h–12h30 / 14h–17h30</span></li>
           </ul>

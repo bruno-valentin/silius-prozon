@@ -15,9 +15,9 @@ export default function Header() {
       <div className="bg-prozon-blue border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-8 text-xs text-white/70">
           <span>Collectivités & Professionnels — Service client du lun. au ven. 9h–17h30</span>
-          <a href="tel:+33484894343" className="flex items-center gap-1 hover:text-prozon-orange transition-colors">
+          <a href="tel:+XXXXXXXXXX" className="flex items-center gap-1 hover:text-prozon-orange transition-colors">
             <Phone size={11} />
-            04 84 89 43 43
+            XXXXXXXXXX
           </a>
         </div>
       </div>
