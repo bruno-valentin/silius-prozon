@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PASSWORD = 'REDACTED' // change si tu veux
+const PASSWORD = process.env.AUTH_PASSWORD ?? ''
 
 export function middleware(request: NextRequest) {
   // Ne pas protéger les assets statiques

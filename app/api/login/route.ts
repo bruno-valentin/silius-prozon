@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const PASSWORD = 'REDACTED' // même valeur que dans middleware.ts
+const PASSWORD = process.env.AUTH_PASSWORD ?? ''
 
 export async function POST(request: Request) {
   const { password } = await request.json()
