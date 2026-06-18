@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getCategoryTree, categoryIcon } from '@/lib/taxonomy'
+import HomeSearch from '@/components/HomeSearch'
 import { ArrowRight, Shield, Truck, Phone, Star } from 'lucide-react'
 
 export default async function HomePage() {
@@ -7,7 +8,7 @@ export default async function HomePage() {
   const featured = categories[0]
 
   return (
-    <>
+    <HomeSearch>
       {/* Hero */}
       <section className="bg-prozon-navy text-white relative overflow-hidden">
         <div className="absolute inset-0 opacity-5" style={{backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 40px, #fff 40px, #fff 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, #fff 40px, #fff 41px)' }} />
@@ -99,6 +100,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-    </>
+    </HomeSearch>
   )
 }
