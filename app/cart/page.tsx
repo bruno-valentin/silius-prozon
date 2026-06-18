@@ -14,7 +14,7 @@ export default function CartPage() {
         <ShoppingCart size={64} className="mx-auto text-prozon-gray-mid mb-6" />
         <h1 className="font-display text-3xl font-black uppercase mb-3">Votre panier est vide</h1>
         <p className="text-prozon-gray-mid mb-8">Parcourez notre catalogue pour ajouter des produits.</p>
-        <Link href="/category/panneaux-signalisation-routiere" className="btn-primary">
+        <Link href="/#categories" className="btn-primary">
           Voir nos produits <ArrowRight size={16} />
         </Link>
       </div>

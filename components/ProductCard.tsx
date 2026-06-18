@@ -34,11 +34,26 @@ export default function ProductCard({ product }: { product: Product }) {
 
       <div className="p-4 flex flex-col flex-1">
         <div className="text-xs text-prozon-gray-mid font-mono mb-1">Réf. {product.ref}</div>
-        <Link href={`/product/${product.slug}`} className="hover:text-prozon-orange transition-colors flex-1">
+        <Link href={`/product/${product.slug}`} className="hover:text-prozon-orange transition-colors">
           <h3 className="text-sm font-semibold leading-snug line-clamp-2">{product.name}</h3>
         </Link>
 
-        <div className="mt-3 flex items-end justify-between gap-2">
+        {(product.category_n1 || product.category_n2 || product.category_n3) && (
+          <div className="mt-2 flex flex-wrap gap-1 content-start">
+            {[product.category_n1, product.category_n2, product.category_n3]
+              .filter(Boolean)
+              .map((cat, i) => (
+                <span
+                  key={i}
+                  className="badge bg-prozon-gray text-prozon-gray-mid normal-case tracking-normal font-medium"
+                >
+                  {cat}
+                </span>
+              ))}
+          </div>
+        )}
+
+        <div className="mt-auto pt-3 flex items-end justify-between gap-2">
           <div>
             <div className="text-xl font-display font-bold text-prozon-navy">
               {product.price_ht.toFixed(2)} €

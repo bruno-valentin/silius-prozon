@@ -17,7 +17,7 @@ export type Category = {
 
 export type Product = {
   id: string
-  category_id: string
+  category_id: string | null
   name: string
   slug: string
   ref: string
@@ -27,4 +27,12 @@ export type Product = {
   stock: number
   active: boolean
   created_at: string
+  category_n1: string | null
+  category_n2: string | null
+  category_n3: string | null
 }
+
+// Columns selected for product listings. Excludes `search_vector` (a large tsvector
+// used only for full-text indexing — no need to ship it to the client).
+export const PRODUCT_COLUMNS =
+  'id, category_id, name, slug, ref, price_ht, description, image_url, stock, active, created_at, category_n1, category_n2, category_n3'

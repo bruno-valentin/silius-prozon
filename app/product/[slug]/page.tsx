@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { supabase, Product, Category } from '@/lib/supabase'
+import { supabase, Product } from '@/lib/supabase'
+import { slugify } from '@/lib/taxonomy'
 import { ChevronRight, CheckCircle, Shield, Truck, Package } from 'lucide-react'
 import AddToCartButton from '@/components/AddToCartButton'
 
@@ -10,16 +11,14 @@ async function getProduct(slug: string): Promise<Product | null> {
   return data
 }
 
-async function getCategory(id: string): Promise<Category | null> {
-  const { data } = await supabase.from('categories').select('*').eq('id', id).single()
-  return data
-}
-
 export default async function ProductPage({ params }: { params: { slug: string } }) {
   const product = await getProduct(params.slug)
   if (!product) notFound()
 
-  const category = await getCategory(product.category_id)
+  // Breadcrumb / back-link are derived from the product's taxonomy columns.
+  const topCategory = product.category_n1
+    ? { name: product.category_n1, slug: slugify(product.category_n1) }
+    : null
 
   const priceTTC = (product.price_ht * 1.2).toFixed(2)
 
@@ -29,11 +28,17 @@ export default async function ProductPage({ params }: { params: { slug: string }
       <nav className="flex items-center gap-2 text-xs text-prozon-gray-mid mb-8 flex-wrap">
         <Link href="/" className="hover:text-prozon-orange transition-colors">Accueil</Link>
         <ChevronRight size={12} />
-        {category && (
+        {topCategory && (
           <>
-            <Link href={`/category/${category.slug}`} className="hover:text-prozon-orange transition-colors">
-              {category.name}
+            <Link href={`/category/${topCategory.slug}`} className="hover:text-prozon-orange transition-colors">
+              {topCategory.name}
             </Link>
+            <ChevronRight size={12} />
+          </>
+        )}
+        {product.category_n2 && (
+          <>
+            <span className="text-prozon-gray-mid">{product.category_n2}</span>
             <ChevronRight size={12} />
           </>
         )}
@@ -116,10 +121,10 @@ export default async function ProductPage({ params }: { params: { slug: string }
           </div>
 
           {/* Back to category */}
-          {category && (
+          {topCategory && (
             <div className="mt-6">
-              <Link href={`/category/${category.slug}`} className="text-sm text-prozon-orange hover:underline flex items-center gap-1">
-                ← Retour à {category.name}
+              <Link href={`/category/${topCategory.slug}`} className="text-sm text-prozon-orange hover:underline flex items-center gap-1">
+                ← Retour à {topCategory.name}
               </Link>
             </div>
           )}

@@ -1,29 +1,30 @@
 import { notFound } from 'next/navigation'
-import { supabase, Category, Product } from '@/lib/supabase'
-import ProductCard from '@/components/ProductCard'
+import { supabase, Product, PRODUCT_COLUMNS } from '@/lib/supabase'
+import { getTopCategoryBySlug, categoryIcon } from '@/lib/taxonomy'
+import CatalogProducts from '@/components/CatalogProducts'
 import Link from 'next/link'
-import { ChevronRight, SlidersHorizontal } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
-async function getCategory(slug: string): Promise<Category | null> {
-  const { data } = await supabase.from('categories').select('*').eq('slug', slug).single()
-  return data
-}
+// First page of products shown before the user searches. Categories can hold
+// well over a thousand items, so we cap the initial render and let search narrow.
+const INITIAL_PAGE_SIZE = 48
 
-async function getProducts(categoryId: string): Promise<Product[]> {
+async function getProducts(categoryN1: string): Promise<Product[]> {
   const { data } = await supabase
     .from('products')
-    .select('*')
-    .eq('category_id', categoryId)
+    .select(PRODUCT_COLUMNS)
+    .eq('category_n1', categoryN1)
     .eq('active', true)
     .order('price_ht')
-  return data ?? []
+    .limit(INITIAL_PAGE_SIZE)
+  return (data as Product[]) ?? []
 }
 
 export default async function CategoryPage({ params }: { params: { slug: string } }) {
-  const category = await getCategory(params.slug)
+  const category = await getTopCategoryBySlug(params.slug)
   if (!category) notFound()
 
-  const products = await getProducts(category.id)
+  const products = await getProducts(category.name)
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -36,42 +37,30 @@ export default async function CategoryPage({ params }: { params: { slug: string 
 
       {/* Header */}
       <div className="bg-prozon-navy text-white px-8 py-10 mb-10">
-        <div className="text-prozon-orange text-xs font-bold uppercase tracking-widest mb-2">Catégorie</div>
+        <div className="text-prozon-orange text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+          <span className="text-base">{categoryIcon(category.slug)}</span> Catégorie
+        </div>
         <h1 className="font-display text-3xl md:text-4xl font-black uppercase mb-3">{category.name}</h1>
-        {category.description && (
-          <p className="text-white/70 max-w-2xl text-sm leading-relaxed">{category.description}</p>
+        {category.subcategories.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {category.subcategories.map((sub) => (
+              <span key={sub.name} className="text-xs bg-white/10 text-white/80 px-2 py-1">
+                {sub.name} <span className="text-white/40">({sub.count})</span>
+              </span>
+            ))}
+          </div>
         )}
-        <div className="mt-4 text-sm text-white/50">{products.length} produit{products.length > 1 ? 's' : ''}</div>
-      </div>
-
-      {/* Filter bar */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2 text-sm text-prozon-gray-mid">
-          <SlidersHorizontal size={14} />
-          <span>{products.length} résultat{products.length > 1 ? 's' : ''}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-prozon-gray-mid">Trier par</label>
-          <select className="text-sm border border-prozon-border bg-white px-3 py-1.5 text-prozon-navy focus:outline-none focus:border-prozon-orange">
-            <option>Prix croissant</option>
-            <option>Prix décroissant</option>
-            <option>Nom</option>
-          </select>
+        <div className="mt-4 text-sm text-white/50">
+          {category.count.toLocaleString('fr-FR')} produit{category.count > 1 ? 's' : ''}
         </div>
       </div>
 
-      {/* Grid */}
-      {products.length === 0 ? (
-        <div className="text-center py-20 text-prozon-gray-mid">
-          Aucun produit dans cette catégorie.
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      )}
+      {/* Search + results (client-side, debounced full-text search) */}
+      <CatalogProducts
+        categoryName={category.name}
+        initialProducts={products}
+        totalCount={category.count}
+      />
     </div>
   )
 }

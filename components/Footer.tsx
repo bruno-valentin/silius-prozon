@@ -1,23 +1,29 @@
 import Link from 'next/link'
 import { Phone, Mail, MapPin } from 'lucide-react'
+import { getCategoryTree } from '@/lib/taxonomy'
 
-export default function Footer() {
+export default async function Footer() {
+  const categories = (await getCategoryTree()).slice(0, 6)
+
   return (
     <footer className="bg-prozon-navy text-white mt-16">
       <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-3 gap-10">
         <div>
           <div className="font-display text-2xl font-black tracking-widest mb-2">SILIUS</div>
           <p className="text-white/60 text-sm leading-relaxed">
-            Fournitures techniques pour collectivités et professionnels. Panneaux, mobilier urbain, équipements de voirie.
+            Fournitures techniques pour collectivités et professionnels — aménagement ERP, voirie, industrie, construction et bien plus.
           </p>
         </div>
         <div>
           <h4 className="font-display font-bold text-sm uppercase tracking-widest text-prozon-orange mb-4">Nos catégories</h4>
           <ul className="space-y-2 text-sm text-white/70">
-            <li><Link href="/category/panneaux-signalisation-routiere" className="hover:text-white transition-colors">Panneaux de signalisation</Link></li>
-            <li><span className="opacity-40">Mobilier urbain</span></li>
-            <li><span className="opacity-40">Équipement de chantier</span></li>
-            <li><span className="opacity-40">Marquage au sol</span></li>
+            {categories.map((cat) => (
+              <li key={cat.slug}>
+                <Link href={`/category/${cat.slug}`} className="hover:text-white transition-colors">
+                  {cat.name}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
         <div>

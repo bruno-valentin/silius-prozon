@@ -40,7 +40,7 @@ export default function Header() {
             <Link href="/" className="px-4 py-5 text-sm font-semibold hover:text-prozon-orange transition-colors border-b-2 border-transparent hover:border-prozon-orange">
               Accueil
             </Link>
-            <Link href="/category/panneaux-signalisation-routiere" className="px-4 py-5 text-sm font-semibold hover:text-prozon-orange transition-colors border-b-2 border-transparent hover:border-prozon-orange flex items-center gap-1">
+            <Link href="/#categories" className="px-4 py-5 text-sm font-semibold hover:text-prozon-orange transition-colors border-b-2 border-transparent hover:border-prozon-orange flex items-center gap-1">
               Nos produits <ChevronDown size={14} />
             </Link>
             <Link href="/admin" className="px-4 py-5 text-sm font-semibold text-prozon-orange border-b-2 border-prozon-orange">
@@ -70,7 +70,7 @@ export default function Header() {
       {mobileOpen && (
         <div className="md:hidden bg-prozon-blue border-t border-white/10 px-4 py-4 flex flex-col gap-2">
           <Link href="/" className="py-2 text-sm font-semibold" onClick={() => setMobileOpen(false)}>Accueil</Link>
-          <Link href="/category/panneaux-signalisation-routiere" className="py-2 text-sm font-semibold" onClick={() => setMobileOpen(false)}>Nos produits</Link>
+          <Link href="/#categories" className="py-2 text-sm font-semibold" onClick={() => setMobileOpen(false)}>Nos produits</Link>
           <Link href="/admin" className="py-2 text-sm font-semibold text-prozon-orange" onClick={() => setMobileOpen(false)}>Back-office</Link>
         </div>
       )}

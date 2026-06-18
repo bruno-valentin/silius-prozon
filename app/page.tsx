@@ -1,23 +1,10 @@
 import Link from 'next/link'
-import { supabase, Category } from '@/lib/supabase'
+import { getCategoryTree, categoryIcon } from '@/lib/taxonomy'
 import { ArrowRight, Shield, Truck, Phone, Star } from 'lucide-react'
 
-async function getCategories(): Promise<Category[]> {
-  const { data } = await supabase.from('categories').select('*').order('name')
-  return data ?? []
-}
-
-const ALL_CATEGORIES = [
-  { name: 'Panneaux de signalisation', slug: 'panneaux-signalisation-routiere', icon: '🪧', count: 420 },
-  { name: 'Mobilier urbain', slug: '#', icon: '🪑', count: null },
-  { name: 'Balises & Cônes', slug: '#', icon: '🔶', count: null },
-  { name: 'Marquage au sol', slug: '#', icon: '🎨', count: null },
-  { name: 'Éclairage public', slug: '#', icon: '💡', count: null },
-  { name: 'Fonte de voirie', slug: '#', icon: '⚙️', count: null },
-]
-
 export default async function HomePage() {
-  const categories = await getCategories()
+  const categories = await getCategoryTree()
+  const featured = categories[0]
 
   return (
     <>
@@ -34,10 +21,10 @@ export default async function HomePage() {
               <span className="text-prozon-orange">collectivités</span>
             </h1>
             <p className="text-white/70 text-lg mb-8 leading-relaxed">
-              Panneaux de signalisation, mobilier urbain, équipements de voirie — conformes NF & CE, livrés partout en France.
+              Aménagement ERP, voirie, industrie, construction, agricole, événementiel — des milliers de références conformes NF &amp; CE, livrées partout en France.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link href="/category/panneaux-signalisation-routiere" className="btn-primary">
+              <Link href={featured ? `/category/${featured.slug}` : '/'} className="btn-primary">
                 Voir nos produits <ArrowRight size={16} />
               </Link>
               <a href="tel:XXXXXXXXXX" className="btn-secondary border-white text-white hover:bg-white hover:text-prozon-navy">
@@ -65,7 +52,7 @@ export default async function HomePage() {
       </section>
 
       {/* Categories */}
-      <section className="max-w-7xl mx-auto px-4 py-16">
+      <section id="categories" className="max-w-7xl mx-auto px-4 py-16 scroll-mt-24">
         <div className="flex items-end justify-between mb-10">
           <div>
             <div className="text-prozon-orange text-xs font-bold uppercase tracking-widest mb-2">Catalogue</div>
@@ -73,44 +60,45 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {ALL_CATEGORIES.map((cat) => {
-            const isActive = cat.slug !== '#'
-            const card = (
-              <div className={`card p-5 text-center flex flex-col items-center gap-3 ${isActive ? 'cursor-pointer hover:border-prozon-orange' : 'opacity-50 cursor-not-allowed'} transition-all duration-200`}>
-                <div className="text-4xl">{cat.icon}</div>
-                <div className="text-xs font-semibold leading-snug text-prozon-navy">{cat.name}</div>
-                {cat.count && <div className="text-xs text-prozon-gray-mid">{cat.count} produits</div>}
-                {!cat.count && <div className="text-xs text-prozon-gray-mid">Bientôt</div>}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {categories.map((cat) => (
+            <Link key={cat.slug} href={`/category/${cat.slug}`}>
+              <div className="card p-5 text-center flex flex-col items-center gap-3 h-full cursor-pointer hover:border-prozon-orange transition-all duration-200">
+                <div className="text-4xl">{categoryIcon(cat.slug)}</div>
+                <div className="text-sm font-semibold leading-snug text-prozon-navy">{cat.name}</div>
+                <div className="text-xs text-prozon-gray-mid mt-auto">
+                  {cat.count.toLocaleString('fr-FR')} produits · {cat.subcategories.length} sous-catégories
+                </div>
               </div>
-            )
-            return isActive
-              ? <Link key={cat.slug} href={`/category/${cat.slug}`}>{card}</Link>
-              : <div key={cat.name}>{card}</div>
-          })}
+            </Link>
+          ))}
         </div>
       </section>
 
-      {/* Featured category */}
-      <section className="bg-white border-y border-prozon-border">
-        <div className="max-w-7xl mx-auto px-4 py-16">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <div className="text-prozon-orange text-xs font-bold uppercase tracking-widest mb-2">En vedette</div>
-              <h2 className="section-title">Panneaux de signalisation</h2>
+      {/* Featured category — largest in the catalogue */}
+      {featured && (
+        <section className="bg-white border-y border-prozon-border">
+          <div className="max-w-7xl mx-auto px-4 py-16">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <div className="text-prozon-orange text-xs font-bold uppercase tracking-widest mb-2">En vedette</div>
+                <h2 className="section-title">{featured.name}</h2>
+              </div>
+              <Link href={`/category/${featured.slug}`} className="btn-outline-orange text-sm hidden sm:inline-flex">
+                Voir tout <ArrowRight size={14} />
+              </Link>
             </div>
-            <Link href="/category/panneaux-signalisation-routiere" className="btn-outline-orange text-sm hidden sm:inline-flex">
-              Voir tout <ArrowRight size={14} />
+            <p className="text-prozon-gray-mid max-w-2xl mb-8">
+              {featured.count.toLocaleString('fr-FR')} références disponibles, réparties en {featured.subcategories.length} sous-catégories
+              {featured.subcategories[0] ? ` (${featured.subcategories.slice(0, 3).map((s) => s.name).join(', ')}…)` : ''}.
+              Conformes aux normes en vigueur, livrées partout en France.
+            </p>
+            <Link href={`/category/${featured.slug}`} className="btn-primary">
+              Explorer la catégorie <ArrowRight size={16} />
             </Link>
           </div>
-          <p className="text-prozon-gray-mid max-w-2xl mb-8">
-            420 références disponibles. Panneaux conformes NF EN 12899-1, rétroréfléchissants Classe 1, 2 et 3. Idéaux pour mairies, syndicats intercommunaux et gestionnaires de voirie.
-          </p>
-          <Link href="/category/panneaux-signalisation-routiere" className="btn-primary">
-            Explorer la catégorie <ArrowRight size={16} />
-          </Link>
-        </div>
-      </section>
+        </section>
+      )}
     </>
   )
 }

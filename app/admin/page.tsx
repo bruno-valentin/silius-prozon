@@ -1,19 +1,25 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { supabase, Product, Category } from '@/lib/supabase'
-import { Plus, Pencil, X, Check, Upload, Eye, EyeOff, LayoutDashboard } from 'lucide-react'
+import { supabase, Product } from '@/lib/supabase'
+import { getCategoryTree, TopCategory } from '@/lib/taxonomy'
+import { Plus, Pencil, X, Check, Upload, Eye, EyeOff, LayoutDashboard, ChevronLeft, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
 const EMPTY_FORM = {
   name: '', slug: '', ref: '', price_ht: '', description: '',
-  category_id: '', stock: '100', active: true, image_url: '',
+  category_n1: '', category_n2: '', category_n3: '', stock: '100', active: true, image_url: '',
 }
+
+const PAGE_SIZE = 50
 
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
+  const [tree, setTree] = useState<TopCategory[]>([])
+  const [page, setPage] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [activeCount, setActiveCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
@@ -24,24 +30,43 @@ export default function AdminPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Category tree is fetched once; the product list is fetched per page.
   useEffect(() => {
-    fetchAll()
+    getCategoryTree().then(setTree)
   }, [])
 
-  async function fetchAll() {
+  useEffect(() => {
+    fetchPage()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page])
+
+  // Fetches the current page of products plus exact total / active counts
+  // (counts are independent of the page, so the stats stay accurate across the
+  // whole 5k+ catalogue rather than just the rows currently displayed).
+  async function fetchPage() {
     setLoading(true)
-    const [{ data: prods }, { data: cats }] = await Promise.all([
-      supabase.from('products').select('*').order('created_at', { ascending: false }),
-      supabase.from('categories').select('*'),
+    const from = page * PAGE_SIZE
+    const [pageRes, totalRes, activeRes] = await Promise.all([
+      supabase.from('products').select('*').order('created_at', { ascending: false }).range(from, from + PAGE_SIZE - 1),
+      supabase.from('products').select('*', { count: 'exact', head: true }),
+      supabase.from('products').select('*', { count: 'exact', head: true }).eq('active', true),
     ])
-    setProducts(prods ?? [])
-    setCategories(cats ?? [])
+    setProducts(pageRes.data ?? [])
+    setTotal(totalRes.count ?? 0)
+    setActiveCount(activeRes.count ?? 0)
     setLoading(false)
   }
 
   function openCreate() {
     setEditProduct(null)
-    setForm({ ...EMPTY_FORM, category_id: categories[0]?.id ?? '' })
+    const firstN1 = tree[0]
+    setForm({
+      ...EMPTY_FORM,
+      category_n1: firstN1?.name ?? '',
+      category_n2: firstN1?.subcategories[0]?.name ?? '',
+    })
     setImageFile(null)
     setImagePreview(null)
     setShowForm(true)
@@ -52,7 +77,8 @@ export default function AdminPage() {
     setForm({
       name: p.name, slug: p.slug, ref: p.ref,
       price_ht: String(p.price_ht), description: p.description ?? '',
-      category_id: p.category_id, stock: String(p.stock),
+      category_n1: p.category_n1 ?? '', category_n2: p.category_n2 ?? '',
+      category_n3: p.category_n3 ?? '', stock: String(p.stock),
       active: p.active, image_url: p.image_url ?? '',
     })
     setImageFile(null)
@@ -67,6 +93,11 @@ export default function AdminPage() {
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
       setForm(f => ({ ...f, name: v as string, slug }))
+    }
+    // Selecting a top-level category resets the subcategory to its first child.
+    if (k === 'category_n1') {
+      const n1 = tree.find(t => t.name === v)
+      setForm(f => ({ ...f, category_n2: n1?.subcategories[0]?.name ?? '' }))
     }
   }
 
@@ -101,7 +132,9 @@ export default function AdminPage() {
         ref: form.ref,
         price_ht: parseFloat(form.price_ht),
         description: form.description || null,
-        category_id: form.category_id,
+        category_n1: form.category_n1 || null,
+        category_n2: form.category_n2 || null,
+        category_n3: form.category_n3 || null,
         stock: parseInt(form.stock),
         active: form.active,
         image_url: image_url || null,
@@ -117,7 +150,12 @@ export default function AdminPage() {
         setMessage({ type: 'ok', text: 'Produit créé ✓' })
       }
 
-      await fetchAll()
+      // New products are most recent, so jump to the first page to reveal them.
+      if (!editProduct && page !== 0) {
+        setPage(0)
+      } else {
+        await fetchPage()
+      }
       setShowForm(false)
     } catch (err: unknown) {
       setMessage({ type: 'err', text: err instanceof Error ? err.message : 'Erreur inconnue' })
@@ -127,7 +165,7 @@ export default function AdminPage() {
 
   async function toggleActive(p: Product) {
     await supabase.from('products').update({ active: !p.active }).eq('id', p.id)
-    fetchAll()
+    fetchPage()
   }
 
   return (
@@ -151,10 +189,10 @@ export default function AdminPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total produits', value: products.length },
-          { label: 'Actifs', value: products.filter(p => p.active).length },
-          { label: 'Inactifs', value: products.filter(p => !p.active).length },
-          { label: 'Catégories', value: categories.length },
+          { label: 'Total produits', value: total.toLocaleString('fr-FR') },
+          { label: 'Actifs', value: activeCount.toLocaleString('fr-FR') },
+          { label: 'Inactifs', value: (total - activeCount).toLocaleString('fr-FR') },
+          { label: 'Catégories', value: tree.length },
         ].map((stat) => (
           <div key={stat.label} className="bg-white border border-prozon-border p-4">
             <div className="font-display text-3xl font-black text-prozon-navy">{stat.value}</div>
@@ -187,6 +225,8 @@ export default function AdminPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={7} className="text-center py-12 text-prozon-gray-mid">Chargement…</td></tr>
+            ) : products.length === 0 ? (
+              <tr><td colSpan={7} className="text-center py-12 text-prozon-gray-mid">Aucun produit.</td></tr>
             ) : products.map((p, i) => (
               <tr key={p.id} className={`border-t border-prozon-border hover:bg-prozon-gray/50 transition-colors ${i % 2 === 0 ? '' : 'bg-prozon-gray/20'}`}>
                 <td className="px-4 py-3">
@@ -228,6 +268,33 @@ export default function AdminPage() {
         </table>
       </div>
 
+      {/* Pagination */}
+      {total > 0 && (
+        <div className="flex items-center justify-between mt-4 text-sm">
+          <div className="text-prozon-gray-mid">
+            {(page * PAGE_SIZE + 1).toLocaleString('fr-FR')}–
+            {Math.min((page + 1) * PAGE_SIZE, total).toLocaleString('fr-FR')} sur {total.toLocaleString('fr-FR')}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0 || loading}
+              className="btn-secondary text-sm py-1.5 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={15} /> Précédent
+            </button>
+            <span className="text-prozon-gray-mid">Page {page + 1} / {totalPages}</span>
+            <button
+              onClick={() => setPage(p => (p + 1 < totalPages ? p + 1 : p))}
+              disabled={page + 1 >= totalPages || loading}
+              className="btn-secondary text-sm py-1.5 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Suivant <ChevronRight size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Form modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto">
@@ -265,16 +332,41 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* Category */}
+              {/* Taxonomy: n1 / n2 / n3 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-prozon-navy mb-1">Catégorie (N1) *</label>
+                  <select
+                    value={form.category_n1}
+                    onChange={e => handleField('category_n1', e.target.value)}
+                    className="w-full border border-prozon-border px-3 py-2 text-sm focus:outline-none focus:border-prozon-orange"
+                  >
+                    <option value="">—</option>
+                    {tree.map(t => <option key={t.slug} value={t.name}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-prozon-navy mb-1">Sous-catégorie (N2)</label>
+                  <select
+                    value={form.category_n2}
+                    onChange={e => handleField('category_n2', e.target.value)}
+                    className="w-full border border-prozon-border px-3 py-2 text-sm focus:outline-none focus:border-prozon-orange"
+                  >
+                    <option value="">—</option>
+                    {(tree.find(t => t.name === form.category_n1)?.subcategories ?? []).map(s => (
+                      <option key={s.name} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-prozon-navy mb-1">Catégorie *</label>
-                <select
-                  value={form.category_id}
-                  onChange={e => handleField('category_id', e.target.value)}
+                <label className="block text-xs font-bold uppercase tracking-wider text-prozon-navy mb-1">Sous-sous-catégorie (N3)</label>
+                <input
+                  value={form.category_n3}
+                  onChange={e => handleField('category_n3', e.target.value)}
                   className="w-full border border-prozon-border px-3 py-2 text-sm focus:outline-none focus:border-prozon-orange"
-                >
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                  placeholder="Optionnel — ex : Panneaux de danger"
+                />
               </div>
 
               {/* Name */}
