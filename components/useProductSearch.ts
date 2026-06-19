@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Product } from '@/lib/supabase'
-import { searchProducts, SearchScope } from '@/lib/search'
+import { searchProducts, logSearch, SearchScope } from '@/lib/search'
 
 // Shared search behaviour for every search bar: 300ms debounce, an out-of-order
 // response guard, and the loading / active-term bookkeeping. When the query is
@@ -37,6 +37,9 @@ export function useProductSearch(scope: SearchScope = {}) {
         setProducts(results)
         setActiveTerm(term)
         setLoading(false)
+        // Log the committed search (after debounce, once it's the live term) in
+        // the anonymous back-office log — never per keystroke.
+        logSearch(term, results.length, categoryN1)
       })
     }, 300)
 

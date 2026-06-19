@@ -30,3 +30,17 @@ export async function searchProducts(term: string, scope: SearchScope = {}): Pro
   const { data: fallback } = await base().or(`name.ilike.%${escaped}%,ref.ilike.%${escaped}%`)
   return (fallback as Product[]) ?? []
 }
+
+// Records a customer search in the anonymous `search_queries` log, surfaced in
+// the back-office ("Gestion des recherches clients"). GDPR by design: we persist
+// only the typed term, its scope and the result count — never anything that
+// could re-identify who searched (no user id, session, IP or persona link).
+// Fire-and-forget: a logging failure must never break the actual search.
+export function logSearch(term: string, resultsCount: number, scope?: string): void {
+  const cleaned = term.trim()
+  if (!cleaned) return
+  void supabase
+    .from('search_queries')
+    .insert({ term: cleaned, results_count: resultsCount, scope: scope ?? null })
+    .then(undefined, () => {}) // swallow errors — logging is best-effort
+}
