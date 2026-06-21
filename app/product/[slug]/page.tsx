@@ -22,6 +22,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
   const priceTTC = (product.price_ht * 1.2).toFixed(2)
 
+  // Estimated shipping window — randomised at render time.
+  // Start: 8 to 60 days from now. End: start + 3 to 14 days.
+  const shipFrom = new Date()
+  shipFrom.setDate(shipFrom.getDate() + 8 + Math.floor(Math.random() * 53))
+  const shipTo = new Date(shipFrom)
+  shipTo.setDate(shipTo.getDate() + 3 + Math.floor(Math.random() * 12))
+  const fmtDay = (d: Date) =>
+    `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Breadcrumb */}
@@ -94,6 +103,12 @@ export default async function ProductPage({ params }: { params: { slug: string }
           <div className="flex items-center gap-2 text-sm text-green-700 font-semibold mb-6">
             <CheckCircle size={16} />
             En stock ({product.stock} unités disponibles)
+          </div>
+
+          {/* Estimated shipping window */}
+          <div className="flex items-center gap-2 text-sm text-prozon-gray-mid mb-6">
+            <Truck size={16} />
+            Envoi entre le {fmtDay(shipFrom)} et le {fmtDay(shipTo)}
           </div>
 
           {/* Description */}
