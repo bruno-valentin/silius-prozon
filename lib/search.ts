@@ -8,26 +8,30 @@ export const SEARCH_LIMIT = 100
 export type SearchScope = { categoryN1?: string }
 
 // The one product search used by every search bar in the app. The query logic is
-// identical everywhere — accent-insensitive french full-text via the GIN index,
-// with an ilike fallback. Only the scope differs.
+// identical everywhere — accent-insensitive french full-text, results ranked by
+// relevance (ts_rank_cd with per-field weights), with an ilike fallback. Only the
+// scope differs.
 export async function searchProducts(term: string, scope: SearchScope = {}): Promise<Product[]> {
-  const base = () => {
-    const q = supabase.from('products').select(PRODUCT_COLUMNS).eq('active', true)
-    const scoped = scope.categoryN1 ? q.eq('category_n1', scope.categoryN1) : q
-    return scoped.order('price_ht').limit(SEARCH_LIMIT)
-  }
-
-  // Primary path: full-text search backed by the GIN index on `search_vector`.
-  const { data, error } = await base().textSearch('search_vector', term, {
-    type: 'websearch',
-    config: 'fr_unaccent',
-  })
+  // Primary path: relevance-ranked search via the `search_products` RPC
+  // (ts_rank_cd over the weighted GIN-indexed search_vector, name/ref > category).
+  const { data, error } = await supabase
+    .rpc('search_products', {
+      p_term: term,
+      p_scope: scope.categoryN1 ?? null,
+      p_limit: SEARCH_LIMIT,
+    })
+    .select(PRODUCT_COLUMNS)
   if (!error) return (data as Product[]) ?? []
 
-  // Fallback: if the tsvector column / config isn't available, degrade to a
-  // case-insensitive substring match on name and ref.
+  // Fallback: if the RPC isn't available, degrade to a case-insensitive substring
+  // match on name and ref (ordered by price, no relevance ranking).
   const escaped = term.replace(/[%,]/g, ' ')
-  const { data: fallback } = await base().or(`name.ilike.%${escaped}%,ref.ilike.%${escaped}%`)
+  const q = supabase.from('products').select(PRODUCT_COLUMNS).eq('active', true)
+  const scoped = scope.categoryN1 ? q.eq('category_n1', scope.categoryN1) : q
+  const { data: fallback } = await scoped
+    .or(`name.ilike.%${escaped}%,ref.ilike.%${escaped}%`)
+    .order('price_ht')
+    .limit(SEARCH_LIMIT)
   return (fallback as Product[]) ?? []
 }
 
