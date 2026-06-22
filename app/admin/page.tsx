@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LayoutDashboard, Package, Search, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, Package, Search, Truck, ChevronRight } from 'lucide-react'
 
 // Back-office landing. Two areas: the catalogue (CRUD) and the anonymous
 // customer-search log. Each is a card linking to its dedicated page.
@@ -15,6 +15,12 @@ const SECTIONS = [
     icon: Search,
     title: 'Gestion des recherches clients',
     desc: 'Mots-clés recherchés par les visiteurs, de façon anonyme (conforme RGPD).',
+  },
+  {
+    href: '/admin/fournisseurs',
+    icon: Truck,
+    title: 'Fournisseurs & délais',
+    desc: 'Basculer tout le catalogue d’un fournisseur en délai long quand il ne tient pas ses délais.',
   },
 ]
 

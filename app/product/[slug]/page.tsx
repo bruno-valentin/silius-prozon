@@ -1,13 +1,25 @@
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { supabase, Product } from '@/lib/supabase'
+import { supabase, Product, PRODUCT_COLUMNS } from '@/lib/supabase'
 import { slugify } from '@/lib/taxonomy'
+import { estimateDelivery, DeliverySupplierInput } from '@/lib/delivery'
 import { ChevronRight, CheckCircle, Shield, Truck, Package } from 'lucide-react'
 import AddToCartButton from '@/components/AddToCartButton'
+import DeliveryEstimateBlock from '@/components/DeliveryEstimate'
 
 async function getProduct(slug: string): Promise<Product | null> {
-  const { data } = await supabase.from('products').select('*').eq('slug', slug).single()
+  const { data } = await supabase.from('products').select(PRODUCT_COLUMNS).eq('slug', slug).single()
+  return data
+}
+
+// Fetches the supplier fields the delivery engine needs (inherited type + force flag).
+async function getSupplier(id: string): Promise<DeliverySupplierInput> {
+  const { data } = await supabase
+    .from('suppliers')
+    .select('default_supply_type, force_long_delay')
+    .eq('id', id)
+    .single()
   return data
 }
 
@@ -22,14 +34,10 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
   const priceTTC = (product.price_ht * 1.2).toFixed(2)
 
-  // Estimated shipping window — randomised at render time.
-  // Start: 8 to 60 days from now. End: start + 3 to 14 days.
-  const shipFrom = new Date()
-  shipFrom.setDate(shipFrom.getDate() + 8 + Math.floor(Math.random() * 53))
-  const shipTo = new Date(shipFrom)
-  shipTo.setDate(shipTo.getDate() + 3 + Math.floor(Math.random() * 12))
-  const fmtDay = (d: Date) =>
-    `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+  // Reliable, deterministic delivery estimate (replaces the former random window).
+  // Computed server-side from the product's supply data + its supplier.
+  const supplier = product.supplier_id ? await getSupplier(product.supplier_id) : null
+  const delivery = estimateDelivery(product, { supplier })
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -105,11 +113,8 @@ export default async function ProductPage({ params }: { params: { slug: string }
             En stock ({product.stock} unités disponibles)
           </div>
 
-          {/* Estimated shipping window */}
-          <div className="flex items-center gap-2 text-sm text-prozon-gray-mid mb-6">
-            <Truck size={16} />
-            Envoi entre le {fmtDay(shipFrom)} et le {fmtDay(shipTo)}
-          </div>
+          {/* Estimated delivery — rule-driven, deterministic (lib/delivery.ts) */}
+          <DeliveryEstimateBlock estimate={delivery} />
 
           {/* Description */}
           {product.description && (

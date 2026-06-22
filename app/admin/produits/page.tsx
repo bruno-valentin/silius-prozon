@@ -1,22 +1,34 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { supabase, Product } from '@/lib/supabase'
+import { supabase, Product, Supplier, SupplyType } from '@/lib/supabase'
 import { getCategoryTree, TopCategory } from '@/lib/taxonomy'
-import { Plus, Pencil, X, Check, Upload, Eye, EyeOff, LayoutDashboard, ChevronLeft, ChevronRight } from 'lucide-react'
+import { estimateDelivery } from '@/lib/delivery'
+import { Plus, Pencil, X, Check, Upload, Eye, EyeOff, LayoutDashboard, ChevronLeft, ChevronRight, Truck } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import DeliveryEstimateBlock from '@/components/DeliveryEstimate'
 
 const EMPTY_FORM = {
   name: '', slug: '', ref: '', price_ht: '', description: '',
   category_n1: '', category_n2: '', category_n3: '', stock: '100', active: true, image_url: '',
+  supply_type: '' as '' | SupplyType, supplier_id: '', force_long_delay: false,
 }
+
+// Internal admin labels for the 4 supply typologies (the customer never sees these — FR11).
+const SUPPLY_TYPE_OPTIONS: { value: SupplyType; label: string }[] = [
+  { value: 'prozon_stock', label: 'Stock propre (entrepôt) — date ferme' },
+  { value: 'dropship_fr', label: 'Fournisseur France — fourchette courte' },
+  { value: 'dropship_eu', label: 'Fournisseur UE — fourchette moyenne' },
+  { value: 'made_to_order', label: 'Sur commande / import — délai long + devis' },
+]
 
 const PAGE_SIZE = 50
 
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [tree, setTree] = useState<TopCategory[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
   const [activeCount, setActiveCount] = useState(0)
@@ -32,9 +44,10 @@ export default function AdminPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  // Category tree is fetched once; the product list is fetched per page.
+  // Category tree and suppliers are fetched once; the product list is fetched per page.
   useEffect(() => {
     getCategoryTree().then(setTree)
+    supabase.from('suppliers').select('*').order('name').then(({ data }) => setSuppliers(data ?? []))
   }, [])
 
   useEffect(() => {
@@ -80,6 +93,8 @@ export default function AdminPage() {
       category_n1: p.category_n1 ?? '', category_n2: p.category_n2 ?? '',
       category_n3: p.category_n3 ?? '', stock: String(p.stock),
       active: p.active, image_url: p.image_url ?? '',
+      supply_type: p.supply_type ?? '', supplier_id: p.supplier_id ?? '',
+      force_long_delay: p.force_long_delay ?? false,
     })
     setImageFile(null)
     setImagePreview(p.image_url)
@@ -98,6 +113,12 @@ export default function AdminPage() {
     if (k === 'category_n1') {
       const n1 = tree.find(t => t.name === v)
       setForm(f => ({ ...f, category_n2: n1?.subcategories[0]?.name ?? '' }))
+    }
+    // Picking a supplier pre-fills the supply type from its default (inheritance, US-4.2) —
+    // still overridable below.
+    if (k === 'supplier_id') {
+      const sup = suppliers.find(s => s.id === v)
+      if (sup) setForm(f => ({ ...f, supply_type: sup.default_supply_type }))
     }
   }
 
@@ -138,6 +159,12 @@ export default function AdminPage() {
         stock: parseInt(form.stock),
         active: form.active,
         image_url: image_url || null,
+        supply_type: form.supply_type || null,
+        supplier_id: form.supplier_id || null,
+        force_long_delay: form.force_long_delay,
+        // Trace who/when the "long delay" override is set (public-markets audit, O3).
+        force_long_delay_at: form.force_long_delay ? new Date().toISOString() : null,
+        force_long_delay_by: form.force_long_delay ? 'back-office' : null,
       }
 
       if (editProduct) {
@@ -167,6 +194,18 @@ export default function AdminPage() {
     await supabase.from('products').update({ active: !p.active }).eq('id', p.id)
     fetchPage()
   }
+
+  // Live customer preview — same engine as the product page (single source of truth),
+  // recomputed on every render so it tracks each field change (FR16).
+  const previewSupplier = suppliers.find(s => s.id === form.supplier_id) ?? null
+  const previewEstimate = estimateDelivery(
+    { supply_type: form.supply_type || null, force_long_delay: form.force_long_delay },
+    {
+      supplier: previewSupplier
+        ? { default_supply_type: previewSupplier.default_supply_type, force_long_delay: previewSupplier.force_long_delay }
+        : null,
+    },
+  )
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -436,6 +475,74 @@ export default function AdminPage() {
                   className="w-full border border-prozon-border px-3 py-2 text-sm focus:outline-none focus:border-prozon-orange resize-none"
                   placeholder="Description détaillée du produit…"
                 />
+              </div>
+
+              {/* Supply & delivery estimate (EPIC-4 / D9) */}
+              <div className="border border-prozon-border bg-prozon-gray/50 p-4 space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-prozon-navy">
+                  <Truck size={14} /> Approvisionnement &amp; délai de livraison
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Supplier */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-prozon-navy mb-1">Fournisseur</label>
+                    <select
+                      value={form.supplier_id}
+                      onChange={e => handleField('supplier_id', e.target.value)}
+                      className="w-full border border-prozon-border px-3 py-2 text-sm focus:outline-none focus:border-prozon-orange bg-white"
+                    >
+                      <option value="">— Aucun (stock propre)</option>
+                      {suppliers.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}{s.force_long_delay ? ' — délai long actif' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Supply type */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-prozon-navy mb-1">Type de livraison</label>
+                    <select
+                      value={form.supply_type}
+                      onChange={e => handleField('supply_type', e.target.value)}
+                      className="w-full border border-prozon-border px-3 py-2 text-sm focus:outline-none focus:border-prozon-orange bg-white"
+                    >
+                      <option value="">— Défaut prudent (sur commande)</option>
+                      {SUPPLY_TYPE_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    {form.supplier_id && (
+                      <div className="text-xs text-prozon-gray-mid mt-1">Hérité du fournisseur — modifiable</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Force "long delay" toggle (product level) — one-way, degrade only */}
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleField('force_long_delay', !form.force_long_delay)}
+                    className={`w-12 h-6 rounded-full transition-colors duration-200 shrink-0 ${form.force_long_delay ? 'bg-prozon-orange' : 'bg-prozon-border'} relative`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${form.force_long_delay ? 'translate-x-6' : ''}`} />
+                  </button>
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-prozon-navy">
+                      Passer en délai long — Expédié sous 5 à 7 semaines
+                    </div>
+                    <div className="text-xs text-prozon-gray-mid mt-0.5">
+                      Sens unique : on ne peut que rendre la promesse plus prudente, jamais raccourcir.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live customer preview — exactly what the visitor will see */}
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-prozon-gray-mid mb-2">Aperçu client</div>
+                  <DeliveryEstimateBlock estimate={previewEstimate} />
+                </div>
               </div>
 
               {/* Active toggle */}
